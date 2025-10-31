@@ -105,15 +105,28 @@ async def crawl_multiple_tax_codes_with_progress(
                     continue
 
                 try:
-                    # Parse HTML
-                    match = re.search(r"<table.*?>.*?</table>", r.html, re.DOTALL | re.IGNORECASE)
+                    # Split HTML by "Ngành nghề kinh doanh" to separate two tables
+                    html_parts = r.html.rsplit('Ngành nghề kinh doanh', 1)
+
+                    if len(html_parts) < 2:
+                        print(f"✗ Cannot split HTML for {tax_code}")
+                        results.append({"MST": tax_code})
+                        continue
+
+                    html, html2 = html_parts
+
+                    # Find both tables
+                    match = re.search(r"<table.*?>.*?</table>", html, re.DOTALL | re.IGNORECASE)
+                    match2 = re.search(r"<table.*?>.*?</table>", html2, re.DOTALL | re.IGNORECASE)
 
                     if not match:
-                        print(f"✗ No table found for {tax_code}")
+                        print(f"✗ No company info table found for {tax_code}")
                         results.append({"MST": tax_code})
                         continue
 
                     table_html = match.group(0)
+
+                    # ==== TABLE 1: Company Information ====
                     soup = BeautifulSoup(table_html, "html5lib")
 
                     # Remove ads
@@ -134,7 +147,7 @@ async def crawl_multiple_tax_codes_with_progress(
                             continue
 
                         key = tds[0].get_text(strip=True)
-                        val = " ".join(tds[1].stripped_strings)
+                        val = tds[1].get_text(" ", strip=True)
 
                         if "Mã số thuế" in key:
                             info["MST"] = val
@@ -155,8 +168,47 @@ async def crawl_multiple_tax_codes_with_progress(
                             info["Quản lý bởi"] = val
                         elif "Loại hình DN" in key:
                             info["Loại hình DN"] = val
-                        elif "Ngành nghề" in key:
-                            info["Ngành nghề kinh doanh"] = val
+
+                    # ==== TABLE 2: Industries (Ngành nghề kinh doanh) ====
+                    if match2:
+                        table_html2 = match2.group(0)
+                        soup2 = BeautifulSoup(table_html2, "html5lib")
+                        industries = []
+
+                        for tr in soup2.select("tbody tr"):
+                            tds = tr.find_all("td")
+                            if len(tds) < 2:
+                                continue
+
+                            # Check if main industry (has <strong> tag)
+                            is_main = bool(tr.find("strong"))
+                            code = tds[0].get_text(strip=True)
+                            raw_text = tds[1].get_text(" ", strip=True)
+
+                            # Split by "Chi tiết:"
+                            parts = raw_text.split("Chi tiết:", 1)
+                            name = parts[0].strip()
+                            detail = parts[1].strip() if len(parts) > 1 else ""
+
+                            industries.append({
+                                "Mã ngành": code,
+                                "Ngành": name,
+                                "Chi tiết": detail,
+                                "Đậm": is_main
+                            })
+
+                        # Format industries as multi-line string with bold markers
+                        formatted_industries = []
+                        for ind in industries:
+                            prefix = "**" if ind["Đậm"] else ""
+                            suffix = "**" if ind["Đậm"] else ""
+                            line = f"{prefix}{ind['Mã ngành']} - {ind['Ngành']}{suffix}"
+                            if ind["Chi tiết"]:
+                                line += f" | Chi tiết: {ind['Chi tiết']}"
+                            formatted_industries.append(line)
+
+                        # Join with newlines
+                        info["Ngành nghề kinh doanh"] = "\n".join(formatted_industries)
 
                     results.append(info)
                     print(f"✓ Crawled: {tax_code}")
@@ -208,7 +260,7 @@ async def crawl_multiple_tax_codes(tax_codes: List[str], batch_size: int = 3, de
     config = CrawlerRunConfig(
         scraping_strategy=LXMLWebScrapingStrategy(),
         wait_for="css:body",
-        delay_before_return_html=random.uniform(1.5, 3),  # Random delay
+        # delay_before_return_html=random.uniform(1.5, 3),  # Random delay
         stream=False,
         verbose=False,
         page_timeout=60000
@@ -249,17 +301,28 @@ async def crawl_multiple_tax_codes(tax_codes: List[str], batch_size: int = 3, de
                     continue
 
                 try:
-                    # Parse the HTML - search for table in full HTML
-                    match = re.search(r"<table.*?>.*?</table>", r.html, re.DOTALL | re.IGNORECASE)
+                    # Split HTML by "Ngành nghề kinh doanh" to separate two tables
+                    html_parts = r.html.rsplit('Ngành nghề kinh doanh', 1)
+
+                    if len(html_parts) < 2:
+                        print(f"✗ Cannot split HTML for {tax_code}")
+                        results.append({"MST": tax_code})
+                        continue
+
+                    html, html2 = html_parts
+
+                    # Find both tables
+                    match = re.search(r"<table.*?>.*?</table>", html, re.DOTALL | re.IGNORECASE)
+                    match2 = re.search(r"<table.*?>.*?</table>", html2, re.DOTALL | re.IGNORECASE)
 
                     if not match:
-                        print(f"✗ No table found for {tax_code}")
+                        print(f"✗ No company info table found for {tax_code}")
                         results.append({"MST": tax_code})
                         continue
 
                     table_html = match.group(0)
 
-                    # Use powerful parser to fix broken HTML
+                    # ==== TABLE 1: Company Information ====
                     soup = BeautifulSoup(table_html, "html5lib")
 
                     # Remove ads and junk
@@ -268,19 +331,19 @@ async def crawl_multiple_tax_codes(tax_codes: List[str], batch_size: int = 3, de
 
                     info = {"MST": tax_code}
 
-                    # 1️⃣ Get company name
+                    # Get company name
                     name_tag = soup.select_one("th[colspan='2'] span.copy")
                     if name_tag:
                         info["Tên"] = name_tag.get_text(strip=True)
 
-                    # 2️⃣ Parse all <tr> rows in table
+                    # Parse all <tr> rows in table
                     for tr in soup.select("table.table-taxinfo tr"):
                         tds = tr.find_all("td")
                         if len(tds) < 2:
                             continue
 
                         key = tds[0].get_text(strip=True)
-                        val = " ".join(tds[1].stripped_strings)
+                        val = tds[1].get_text(" ", strip=True)
 
                         if "Mã số thuế" in key:
                             info["MST"] = val
@@ -302,8 +365,47 @@ async def crawl_multiple_tax_codes(tax_codes: List[str], batch_size: int = 3, de
                             info["Quản lý bởi"] = val
                         elif "Loại hình DN" in key:
                             info["Loại hình DN"] = val
-                        elif "Ngành nghề" in key:
-                            info["Ngành nghề kinh doanh"] = val
+
+                    # ==== TABLE 2: Industries (Ngành nghề kinh doanh) ====
+                    if match2:
+                        table_html2 = match2.group(0)
+                        soup2 = BeautifulSoup(table_html2, "html5lib")
+                        industries = []
+
+                        for tr in soup2.select("tbody tr"):
+                            tds = tr.find_all("td")
+                            if len(tds) < 2:
+                                continue
+
+                            # Check if main industry (has <strong> tag)
+                            is_main = bool(tr.find("strong"))
+                            code = tds[0].get_text(strip=True)
+                            raw_text = tds[1].get_text(" ", strip=True)
+
+                            # Split by "Chi tiết:"
+                            parts = raw_text.split("Chi tiết:", 1)
+                            name = parts[0].strip()
+                            detail = parts[1].strip() if len(parts) > 1 else ""
+
+                            industries.append({
+                                "Mã ngành": code,
+                                "Ngành": name,
+                                "Chi tiết": detail,
+                                "Đậm": is_main
+                            })
+
+                        # Format industries as multi-line string with bold markers
+                        formatted_industries = []
+                        for ind in industries:
+                            prefix = "**" if ind["Đậm"] else ""
+                            suffix = "**" if ind["Đậm"] else ""
+                            line = f"{prefix}{ind['Mã ngành']} - {ind['Ngành']}{suffix}"
+                            if ind["Chi tiết"]:
+                                line += f" | Chi tiết: {ind['Chi tiết']}"
+                            formatted_industries.append(line)
+
+                        # Join with newlines
+                        info["Ngành nghề kinh doanh"] = "\n".join(formatted_industries)
 
                     results.append(info)
                     print(f"✓ Crawled: {tax_code}")
