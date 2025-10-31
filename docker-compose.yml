@@ -1,19 +1,52 @@
+version: '3.8'
+
 services:
+  # Redis for progress store (optional but recommended)
+  redis:
+    image: redis:7-alpine
+    container_name: tax-crawler-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - tax-crawler-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Tax Crawler App
   app:
     build: .
     container_name: tax-crawler-app
     restart: unless-stopped
-    shm_size: 2g
     ports:
       - "8102:8102"
     environment:
+      # App config
       - HOST=0.0.0.0
       - PORT=8102
-      - WORKERS=1
-      - USE_REDIS=false
+      - WORKERS=1  # IMPORTANT: Single worker for in-memory progress store
+
+      # Redis config (if using Redis)
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - USE_REDIS=false  # Set to true to enable Redis
+
+      # Crawler config
+      - DEFAULT_BATCH_SIZE=5
+      - DEFAULT_DELAY_MIN=2
+      - DEFAULT_DELAY_MAX=5
+
+      # Logging
+      - LOG_LEVEL=INFO
+    depends_on:
+      redis:
+        condition: service_healthy
     volumes:
+      # Mount data directory for results (optional)
       - ./data:/app/data
-      - /dev/shm:/dev/shm
     networks:
       - tax-crawler-network
     healthcheck:
@@ -22,23 +55,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
-    # (tùy chọn) tăng performance DNS và tránh latency
-    network_mode: host
-
-  redis:
-    image: redis:7-alpine
-    container_name: tax-crawler-redis
-    restart: unless-stopped
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
 
 networks:
   tax-crawler-network:
@@ -47,3 +63,4 @@ networks:
 volumes:
   redis_data:
     driver: local
+
