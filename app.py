@@ -31,7 +31,7 @@ async def home(request: Request):
 async def crawl_single(request: Request, tax_code: str = Form(...)):
     """Crawl a single tax code"""
     try:
-        result = await crawl_tax_code(tax_code)
+        result = crawl_tax_code(tax_code)
         return templates.TemplateResponse(
             "index.html",
             {
@@ -117,7 +117,7 @@ async def crawl_from_csv(request: Request, file: UploadFile = File(...)):
 
         if is_ajax:
             # For AJAX requests, start background task and return session_id immediately
-            async def crawl_in_background():
+            def crawl_in_background():
                 try:
                     from crawler import crawl_multiple_tax_codes_with_progress
 
@@ -133,7 +133,7 @@ async def crawl_from_csv(request: Request, file: UploadFile = File(...)):
                         progress_store[session_id] = progress_data
                         print(f"[Progress] {current}/{total}: {code} - {status}")
 
-                    results = await crawl_multiple_tax_codes_with_progress(
+                    results = crawl_multiple_tax_codes_with_progress(
                         tax_codes,
                         batch_size=batch_size,
                         delay_range=delay_range,
@@ -158,8 +158,10 @@ async def crawl_from_csv(request: Request, file: UploadFile = File(...)):
                     }
                     print(f"[Error] {error_msg}")
 
-            # Start background task
-            asyncio.create_task(crawl_in_background())
+            # Start background task using threading
+            import threading
+            thread = threading.Thread(target=crawl_in_background, daemon=True)
+            thread.start()
 
             # Return session_id immediately
             print(f"[AJAX] Starting background crawl with session_id: {session_id}")
@@ -169,7 +171,7 @@ async def crawl_from_csv(request: Request, file: UploadFile = File(...)):
         results = []
         try:
             from crawler import crawl_multiple_tax_codes_with_progress
-            results = await crawl_multiple_tax_codes_with_progress(
+            results = crawl_multiple_tax_codes_with_progress(
                 tax_codes,
                 batch_size=batch_size,
                 delay_range=delay_range,

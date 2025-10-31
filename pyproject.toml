@@ -5,7 +5,7 @@ description = "Tax information crawler with web interface"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "crawl4ai>=0.3.0",
+    "requests>=2.31.0",
     "fastapi>=0.115.0",
     "uvicorn>=0.30.0",
     "beautifulsoup4>=4.12.0",

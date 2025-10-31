@@ -1,19 +1,18 @@
 """
 Tax Crawler - Main entry point
 """
-import asyncio
 import sys
 from crawler import crawl_tax_code, crawl_multiple_tax_codes
 
 
-async def cli_example():
+def cli_example():
     """Example CLI usage"""
     print("=== Tax Crawler CLI Example ===\n")
 
     # Single tax code
     tax_code = '0200837003'
     print(f"Crawling tax code: {tax_code}")
-    result = await crawl_tax_code(tax_code)
+    result = crawl_tax_code(tax_code)
 
     print("\n📋 Result:")
     for key, value in result.items():
@@ -37,7 +36,7 @@ def main():
         uvicorn.run(app, host="0.0.0.0", port=8000)
     else:
         # Run CLI example
-        asyncio.run(cli_example())
+        cli_example()
 
 
 if __name__ == "__main__":
