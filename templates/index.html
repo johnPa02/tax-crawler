@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tax Information Crawler</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+        }
+
+        .input-section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        input[type="text"],
+        input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="file"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.1s;
+            font-weight: 600;
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .download-btn {
+            background: #28a745;
+        }
+
+        .download-btn:hover {
+            background: #218838;
+        }
+
+        .divider {
+            text-align: center;
+            margin: 20px 0;
+            color: #999;
+            position: relative;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 45%;
+            height: 1px;
+            background: #ddd;
+        }
+
+        .divider::before {
+            left: 0;
+        }
+
+        .divider::after {
+            right: 0;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .results-section {
+            margin-top: 30px;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .results-header h2 {
+            color: #333;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        thead {
+            background: #667eea;
+            color: white;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+        }
+
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .card-header {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            color: #333;
+            font-size: 1em;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .file-upload-label {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .file-upload-label:hover {
+            background: #5568d3;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-name {
+            display: inline-block;
+            margin-left: 10px;
+            color: #666;
+        }
+
+        /* Progress Bar Styles */
+        .progress-container {
+            display: none;
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            margin: 20px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .progress-container.active {
+            display: block;
+        }
+
+        .progress-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .progress-header h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar-wrapper {
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 30px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .progress-info {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .progress-status {
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 13px;
+        }
+
+        .current-code {
+            font-weight: bold;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Tax Information Crawler</h1>
+        <p class="subtitle">Tra cứu thông tin mã số thuế doanh nghiệp</p>
+
+        {% if error %}
+        <div class="alert alert-error">
+            ❌ {{ error }}
+        </div>
+        {% endif %}
+
+        {% if csv_uploaded %}
+        <div class="alert alert-success">
+            ✅ Đã xử lý thành công {{ total_codes }} mã số thuế từ file CSV
+        </div>
+        {% endif %}
+
+        <!-- Progress Bar -->
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-header">
+                <h3>⏳ Đang xử lý...</h3>
+            </div>
+            <div class="progress-bar-wrapper">
+                <div class="progress-bar" id="progressBar">0%</div>
+            </div>
+            <div class="progress-info">
+                <span id="progressText">Đang chuẩn bị...</span>
+            </div>
+            <div class="progress-status">
+                Đang xử lý: <span class="current-code" id="currentCode">-</span>
+                <br>
+                <small id="statusMessage">Vui lòng chờ...</small>
+            </div>
+        </div>
+
+        <div class="input-section">
+            <form method="post" action="/crawl">
+                <div class="input-group">
+                    <label for="tax_code">🔢 Nhập mã số thuế:</label>
+                    <input
+                        type="text"
+                        id="tax_code"
+                        name="tax_code"
+                        placeholder="Ví dụ: 0200837003"
+                        value="{{ tax_code or '' }}"
+                        required
+                    >
+                </div>
+                <div class="button-group">
+                    <button type="submit">Tra cứu</button>
+                </div>
+            </form>
+
+            <div class="divider">HOẶC</div>
+
+            <form method="post" action="/crawl_csv" enctype="multipart/form-data" id="csvForm">
+                <div class="input-group">
+                    <label for="file">📁 Tải lên file CSV:</label>
+                    <label for="file" class="file-upload-label">
+                        Chọn file CSV
+                    </label>
+                    <input
+                        type="file"
+                        id="file"
+                        name="file"
+                        accept=".csv"
+                        onchange="updateFileName(this)"
+                        required
+                    >
+                    <span class="file-name" id="fileName">Chưa chọn file</span>
+                </div>
+                <div class="button-group">
+                    <button type="submit" id="csvSubmitBtn">Xử lý file CSV</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px; color: #666;">Đang xử lý...</p>
+        </div>
+
+        {% if results %}
+        <div class="results-section">
+            <div class="results-header">
+                <h2>📊 Kết quả tra cứu ({{ results|length }} bản ghi)</h2>
+                <form method="post" action="/download_excel" id="downloadForm">
+                    <input type="hidden" name="results_json" id="resultsData" value="">
+                    <button type="submit" class="download-btn">📊 Tải xuống Excel</button>
+                </form>
+            </div>
+
+            {% for result in results %}
+            <div class="card">
+                <div class="card-header">
+                    {{ result.get('Tên', 'N/A') }}
+                </div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Mã số thuế:</span>
+                        <span class="info-value">{{ result.get('MST', 'N/A') }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Tình trạng:</span>
+                        <span class="info-value">{{ result.get('Tình trạng', 'N/A') }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Người đại diện:</span>
+                        <span class="info-value">{{ result.get('Người đại diện', 'N/A') }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Điện thoại:</span>
+                        <span class="info-value">{{ result.get('Điện thoại', 'N/A') }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Loại hình DN:</span>
+                        <span class="info-value">{{ result.get('Loại hình DN', 'N/A') }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Ngày hoạt động:</span>
+                        <span class="info-value">{{ result.get('Ngày hoạt động', 'N/A') }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Quản lý bởi:</span>
+                        <span class="info-value">{{ result.get('Quản lý bởi', 'N/A') }}</span>
+                    </div>
+                    {% if result.get('Địa chỉ') %}
+                    <div class="info-item" style="grid-column: 1 / -1;">
+                        <span class="info-label">Địa chỉ:</span>
+                        <span class="info-value">{{ result.get('Địa chỉ', 'N/A') }}</span>
+                    </div>
+                    {% endif %}
+                    {% if result.get('Địa chỉ thuế') %}
+                    <div class="info-item" style="grid-column: 1 / -1;">
+                        <span class="info-label">Địa chỉ thuế:</span>
+                        <span class="info-value">{{ result.get('Địa chỉ thuế', 'N/A') }}</span>
+                    </div>
+                    {% endif %}
+                    {% if result.get('Ngành nghề kinh doanh') %}
+                    <div class="info-item" style="grid-column: 1 / -1;">
+                        <span class="info-label">Ngành nghề kinh doanh:</span>
+                        <span class="info-value">{{ result.get('Ngành nghề kinh doanh', 'N/A') }}</span>
+                    </div>
+                    {% endif %}
+                    {% if result.get('Error') %}
+                    <div class="info-item" style="grid-column: 1 / -1;">
+                        <span class="info-label">Lỗi:</span>
+                        <span class="info-value" style="color: red;">{{ result.get('Error') }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        function updateFileName(input) {
+            const fileName = input.files[0]?.name || 'Chưa chọn file';
+            document.getElementById('fileName').textContent = fileName;
+        }
+
+        // Encode results data for download
+        {% if results %}
+        const resultsData = {{ results|tojson|safe }};
+        const resultsJson = JSON.stringify(resultsData);
+        const base64Results = btoa(unescape(encodeURIComponent(resultsJson)));
+        document.getElementById('resultsData').value = base64Results;
+        {% endif %}
+
+        // Progress tracking with Server-Sent Events
+        let eventSource = null;
+
+        function connectProgressStream(sessionId) {
+            console.log('Connecting to progress stream:', sessionId);
+
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const currentCode = document.getElementById('currentCode');
+            const statusMessage = document.getElementById('statusMessage');
+
+            // Show progress container
+            console.log('Showing progress container');
+            progressContainer.classList.add('active');
+            progressContainer.style.display = 'block';  // Force display
+
+            // Connect to SSE endpoint
+            console.log('Opening SSE connection to:', `/progress/${sessionId}`);
+            eventSource = new EventSource(`/progress/${sessionId}`);
+
+            eventSource.onmessage = function(event) {
+                console.log('SSE message received:', event.data);
+                const data = JSON.parse(event.data);
+                console.log('Parsed data:', data);
+
+                if (data.status === 'processing') {
+                    const percentage = data.percentage || 0;
+                    progressBar.style.width = percentage + '%';
+                    progressBar.textContent = percentage + '%';
+                    progressText.textContent = `Đã xử lý ${data.completed}/${data.total} mã số thuế`;
+                    currentCode.textContent = data.current || '-';
+                    statusMessage.textContent = data.message || 'Đang xử lý...';
+                } else if (data.status === 'completed') {
+                    progressBar.style.width = '100%';
+                    progressBar.textContent = '100%';
+                    progressBar.style.background = 'linear-gradient(90deg, #28a745 0%, #20c997 100%)';
+                    progressText.textContent = `✅ Hoàn thành! Đã xử lý ${data.total} mã số thuế`;
+                    statusMessage.textContent = 'Đang tải kết quả...';
+
+                    // Close connection
+                    if (eventSource) {
+                        eventSource.close();
+                        eventSource = null;
+                    }
+
+                    // Redirect to results page after 1 second
+                    setTimeout(() => {
+                        window.location.href = `/results/${sessionId}`;
+                    }, 1000);
+                } else if (data.status === 'error') {
+                    progressBar.style.background = '#dc3545';
+                    progressText.textContent = '❌ Có lỗi xảy ra';
+                    statusMessage.textContent = data.message || 'Error';
+
+                    if (eventSource) {
+                        eventSource.close();
+                        eventSource = null;
+                    }
+                }
+            };
+
+            eventSource.onerror = function(error) {
+                console.error('SSE Error:', error);
+                if (eventSource) {
+                    eventSource.close();
+                    eventSource = null;
+                }
+            };
+        }
+
+        // Handle CSV form submission with AJAX
+        document.getElementById('csvForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const submitBtn = document.getElementById('csvSubmitBtn');
+
+            // Disable submit button
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Đang xử lý...';
+
+            try {
+                const response = await fetch('/crawl_csv', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                // Check content type
+                const contentType = response.headers.get('content-type');
+                console.log('Response content-type:', contentType);
+
+                if (contentType && contentType.includes('application/json')) {
+                    // JSON response with session_id
+                    const data = await response.json();
+                    console.log('Received session data:', data);
+                    if (data.session_id) {
+                        connectProgressStream(data.session_id);
+                    } else {
+                        throw new Error('No session ID received');
+                    }
+                } else {
+                    // HTML response (error or results)
+                    const html = await response.text();
+                    document.body.innerHTML = html;
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Xử lý file CSV';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Có lỗi xảy ra: ' + error.message);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Xử lý file CSV';
+            }
+        });
+
+        // Show loading spinner when single crawl form is submitted
+        document.querySelector('form[action="/crawl"]').addEventListener('submit', function(e) {
+            document.getElementById('loading').style.display = 'block';
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (eventSource) {
+                eventSource.close();
+            }
+        });
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,17 @@
+[project]
+name = "tax-crawler"
+version = "0.1.0"
+description = "Tax information crawler with web interface"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "crawl4ai>=0.3.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "beautifulsoup4>=4.12.0",
+    "html5lib>=1.1",
+    "python-multipart>=0.0.9",
+    "jinja2>=3.1.0",
+    "pandas>=2.2.0",
+    "openpyxl>=3.1.0",
+]
