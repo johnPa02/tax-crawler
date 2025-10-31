@@ -59,7 +59,7 @@ async def crawl_multiple_tax_codes_with_progress(
     config = CrawlerRunConfig(
         scraping_strategy=LXMLWebScrapingStrategy(),
         wait_for="css:body",
-        delay_before_return_html=random.uniform(1.5, 3),
+        # delay_before_return_html should be set per request, not here
         stream=False,
         verbose=False,
         page_timeout=60000
@@ -72,8 +72,16 @@ async def crawl_multiple_tax_codes_with_progress(
     completed = 0
     total = len(tax_codes)
 
+    # Notify initialization start
+    if progress_callback:
+        progress_callback(0, total, '', 'Initializing browser...')
+
     # Process in batches
     async with AsyncWebCrawler(config=browser_config) as crawler:
+        # Browser is now ready
+        if progress_callback:
+            progress_callback(0, total, '', 'Browser ready! Starting crawl...')
+
         for i in range(0, len(urls), batch_size):
             batch_urls = urls[i:i + batch_size]
             batch_tax_codes = tax_codes[i:i + batch_size]
@@ -415,4 +423,3 @@ async def crawl_multiple_tax_codes(tax_codes: List[str], batch_size: int = 3, de
                     results.append({"MST": tax_code, "Error": str(e)})
 
     return results
-
