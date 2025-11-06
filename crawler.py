@@ -45,22 +45,19 @@ def fetch_tax_info(tax_code: str) -> Dict:
         r.encoding = "utf-8"
         html = r.text
 
-        # Split HTML by "Ngành nghề kinh doanh" to separate two tables
-        html_parts = html.rsplit('Ngành nghề kinh doanh', 1)
+        # Find all tables in the HTML
+        table_matches = re.findall(r"<table.*?>.*?</table>", html, re.DOTALL | re.IGNORECASE)
 
-        if len(html_parts) < 2:
-            print(f"✗ Cannot split HTML for {tax_code}")
+        if not table_matches:
+            print(f"✗ No tables found for {tax_code}")
             return {"MST": tax_code}
 
-        html, html2 = html_parts
-        match = re.search(r"<table.*?>.*?</table>", html, re.DOTALL | re.IGNORECASE)
-        match2 = re.search(r"<table.*?>.*?</table>", html2, re.DOTALL | re.IGNORECASE)
+        # First table is company info (required)
+        table_html = table_matches[0]
 
-        if not match:
-            print(f"✗ No company info table found for {tax_code}")
-            return {"MST": tax_code}
+        # Second table is industries (optional)
+        table_html2 = table_matches[1] if len(table_matches) > 1 else None
 
-        table_html = match.group(0)
 
         # ==== TABLE 1: Company Information ====
         soup = BeautifulSoup(table_html, "html5lib")
@@ -105,8 +102,7 @@ def fetch_tax_info(tax_code: str) -> Dict:
                 info["Loại hình DN"] = val
 
         # ==== TABLE 2: Industries (Ngành nghề kinh doanh) ====
-        if match2:
-            table_html2 = match2.group(0)
+        if table_html2:
             soup2 = BeautifulSoup(table_html2, "html5lib")
             industries = []
 
