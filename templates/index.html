@@ -392,7 +392,7 @@
         </div>
 
         <div class="input-section">
-            <form method="post" action="/crawl">
+            <form method="post" action="/lookup">
                 <div class="input-group">
                     <label for="tax_code">🔢 Nhập mã số thuế:</label>
                     <input
@@ -411,7 +411,7 @@
 
             <div class="divider">HOẶC</div>
 
-            <form method="post" action="/crawl_csv" enctype="multipart/form-data" id="csvForm">
+            <form method="post" action="/lookup_csv" enctype="multipart/form-data" id="csvForm">
                 <div class="input-group">
                     <label for="file">📁 Tải lên file CSV:</label>
                     <label for="file" class="file-upload-label">
@@ -442,10 +442,16 @@
         <div class="results-section">
             <div class="results-header">
                 <h2>📊 Kết quả tra cứu ({{ results|length }} bản ghi)</h2>
-                <form method="post" action="/download_excel" id="downloadForm">
-                    <input type="hidden" name="results_json" id="resultsData" value="">
-                    <button type="submit" class="download-btn">📊 Tải xuống Excel</button>
-                </form>
+                <div style="display: flex; gap: 10px;">
+                    <form method="post" action="/download_excel" id="downloadForm">
+                        <input type="hidden" name="results_json" id="resultsData" value="">
+                        <button type="submit" class="download-btn">📊 Tải xuống Excel</button>
+                    </form>
+                    <form method="post" action="/download_json" id="downloadJsonForm">
+                        <input type="hidden" name="results_json" id="resultsDataJson" value="">
+                        <button type="submit" class="download-btn" style="background: #17a2b8;">📋 Tải xuống JSON</button>
+                    </form>
+                </div>
             </div>
 
             {% for result in results %}
@@ -525,6 +531,7 @@
         const resultsJson = JSON.stringify(resultsData);
         const base64Results = btoa(unescape(encodeURIComponent(resultsJson)));
         document.getElementById('resultsData').value = base64Results;
+        document.getElementById('resultsDataJson').value = base64Results;
         {% endif %}
 
         // Progress tracking with Server-Sent Events
@@ -610,7 +617,7 @@
             submitBtn.textContent = 'Đang xử lý...';
 
             try {
-                const response = await fetch('/crawl_csv', {
+                const response = await fetch('/lookup_csv', {
                     method: 'POST',
                     body: formData,
                     headers: {
@@ -647,7 +654,7 @@
         });
 
         // Show loading spinner when single crawl form is submitted
-        document.querySelector('form[action="/crawl"]').addEventListener('submit', function(e) {
+        document.querySelector('form[action="/lookup"]').addEventListener('submit', function(e) {
             document.getElementById('loading').style.display = 'block';
         });
 

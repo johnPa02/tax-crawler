@@ -3,10 +3,18 @@ Tax information crawler module
 """
 import re
 import time
+import random
 import requests
 from typing import Dict, List
 from bs4 import BeautifulSoup
 
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1.2 Safari/605.1.15",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/120.0"
+]
 
 def crawl_tax_code(tax_code: str) -> Dict:
     """
@@ -25,56 +33,40 @@ def crawl_tax_code(tax_code: str) -> Dict:
 
 def fetch_tax_info(tax_code: str) -> Dict:
     """
-    Fetch tax information for a single tax code using requests
-
+    Fetch tax information for a single tax code using requests, with enterpriseTax fallback.
+    
     Args:
         tax_code: The tax code to search for
-
+        
     Returns:
         Dictionary containing tax information
     """
-    url = f"https://masothue.com/Search/?type=auto&q={tax_code}"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0 Safari/537.36",
-        "Referer": "https://masothue.com/",
-        "Accept-Language": "vi,en;q=0.9"
-    }
-
-    try:
-        r = requests.get(url, headers=headers, timeout=10)
-        r.encoding = "utf-8"
-        html = r.text
-
-        # Find all tables in the HTML
-        table_matches = re.findall(r"<table.*?>.*?</table>", html, re.DOTALL | re.IGNORECASE)
-
+    def parse_company_html(html_text: str) -> dict:
+        table_matches = re.findall(r"<table.*?>.*?</table>", html_text, re.DOTALL | re.IGNORECASE)
         if not table_matches:
-            print(f"✗ No tables found for {tax_code}")
-            return {"MST": tax_code}
+            return None
 
         # First table is company info (required)
         table_html = table_matches[0]
-
         # Second table is industries (optional)
         table_html2 = table_matches[1] if len(table_matches) > 1 else None
 
-
         # ==== TABLE 1: Company Information ====
-        soup = BeautifulSoup(table_html, "html5lib")
+        soup_table = BeautifulSoup(table_html, "html5lib")
 
         # Remove junk tags
-        for tag in soup(["script", "style", "ins", "iframe", "div"]):
+        for tag in soup_table(["script", "style", "ins", "iframe", "div"]):
             tag.decompose()
 
-        info = {}
+        info_dict = {}
 
         # Get company name
-        name_tag = soup.select_one("th[colspan='2'] span.copy")
+        name_tag = soup_table.select_one("th[colspan='2'] span.copy")
         if name_tag:
-            info["Tên"] = name_tag.get_text(strip=True)
+            info_dict["Tên"] = name_tag.get_text(strip=True)
 
         # Parse all table rows
-        for tr in soup.select("table.table-taxinfo tr"):
+        for tr in soup_table.select("table.table-taxinfo tr"):
             tds = tr.find_all("td")
             if len(tds) < 2:
                 continue
@@ -82,24 +74,24 @@ def fetch_tax_info(tax_code: str) -> Dict:
             val = tds[1].get_text(" ", strip=True)
 
             if "Mã số thuế" in key:
-                info["MST"] = val
+                info_dict["MST"] = val
             elif "Địa chỉ Thuế" in key:
-                info["Địa chỉ thuế"] = val
+                info_dict["Địa chỉ thuế"] = val
             elif re.fullmatch(r"Địa chỉ", key):
-                info["Địa chỉ"] = val
+                info_dict["Địa chỉ"] = val
             elif "Tình trạng" in key:
-                info["Tình trạng"] = val
+                info_dict["Tình trạng"] = val
             elif "Người đại diện" in key:
                 rep = tds[1].find("span", {"itemprop": "name"})
-                info["Người đại diện"] = rep.get_text(strip=True) if rep else val
+                info_dict["Người đại diện"] = rep.get_text(strip=True) if rep else val
             elif "Điện thoại" in key:
-                info["Điện thoại"] = val.split("Ẩn")[0].strip()
+                info_dict["Điện thoại"] = val.split("Ẩn")[0].strip()
             elif "Ngày hoạt động" in key:
-                info["Ngày hoạt động"] = val
+                info_dict["Ngày hoạt động"] = val
             elif "Quản lý bởi" in key:
-                info["Quản lý bởi"] = val
+                info_dict["Quản lý bởi"] = val
             elif "Loại hình DN" in key:
-                info["Loại hình DN"] = val
+                info_dict["Loại hình DN"] = val
 
         # ==== TABLE 2: Industries (Ngành nghề kinh doanh) ====
         if table_html2:
@@ -123,7 +115,6 @@ def fetch_tax_info(tax_code: str) -> Dict:
                     "Đậm": is_main
                 })
 
-            # Format industries as multi-line string with bold markers
             formatted_industries = []
             for ind in industries:
                 prefix = "**" if ind["Đậm"] else ""
@@ -133,10 +124,74 @@ def fetch_tax_info(tax_code: str) -> Dict:
                     line += f" | Chi tiết: {ind['Chi tiết']}"
                 formatted_industries.append(line)
 
-            # Join with newlines
-            info["Ngành nghề kinh doanh"] = "\n".join(formatted_industries)
+            info_dict["Ngành nghề kinh doanh"] = "\n".join(formatted_industries)
+            
+        return info_dict
 
-        print(f"✓ Crawled: {tax_code}")
+    url = f"https://masothue.com/Search/?type=enterprise&q={tax_code}"
+    headers = {
+        "User-Agent": random.choice(USER_AGENTS),
+        "Referer": "https://masothue.com/",
+        "Accept-Language": "vi,en;q=0.9,en-US;q=0.8"
+    }
+
+    try:
+        r = requests.get(url, headers=headers, timeout=15)
+        r.encoding = "utf-8"
+        html = r.text
+
+        # Check for captcha
+        if r.status_code == 403 or "Check bot" in html:
+            print(f"✗ Captcha blocked for {tax_code}")
+            return {"MST": tax_code, "Error": "Bị chặn bởi captcha. Vui lòng giải captcha tại masothue.com rồi thử lại."}
+
+        info = parse_company_html(html)
+        returned_mst = info.get("MST", "") if info else ""
+
+        # FALLBACK: If no info found or MST mismatched (due to random bot redirect)
+        if not info or (returned_mst and returned_mst != tax_code):
+            print(f"⚠ Mismatch or no data for {tax_code} (got '{returned_mst}'). Fallback to enterpriseTax...")
+            
+            fallback_url = f"https://masothue.com/Search/?type=enterpriseTax&q={tax_code}"
+            r_fb = requests.get(fallback_url, headers=headers, timeout=15)
+            r_fb.encoding = "utf-8"
+            soup_fb = BeautifulSoup(r_fb.text, "html5lib")
+            
+            target_slug = None
+            # Find the exact match
+            for a in soup_fb.select(".tax-listing h3 a"):
+                slug = a.get("href")
+                parent_div = a.find_parent("div")
+                if parent_div:
+                    hashtag_a = parent_div.find("a", href=slug)
+                    if hashtag_a and hashtag_a.text.strip() == tax_code:
+                        target_slug = slug
+                        break
+            
+            # If no exact match, take the first link
+            if not target_slug:
+                first_link = soup_fb.select_one(".tax-listing h3 a")
+                if first_link:
+                    target_slug = first_link.get("href")
+                    
+            if target_slug:
+                slug_url = f"https://masothue.com{target_slug}"
+                r_slug = requests.get(slug_url, headers=headers, timeout=15)
+                r_slug.encoding = "utf-8"
+                info = parse_company_html(r_slug.text)
+
+        if not info:
+            print(f"✗ No tables found for {tax_code} even after fallback")
+            return {"MST": tax_code, "Error": "Không tìm thấy dữ liệu công ty."}
+
+        # Final verification
+        returned_mst = info.get("MST", "")
+        # Allow branch match (e.g., 0100109106-097 when requested 0100109106)
+        if returned_mst and returned_mst != tax_code and not returned_mst.startswith(f"{tax_code}-"):
+            print(f"⚠ MST mismatch after fallback: requested {tax_code} but got {returned_mst}")
+            return {"MST": tax_code, "Error": f"MST không khớp. Yêu cầu {tax_code} nhưng nhận được {returned_mst}."}
+
+        print(f"✓ Crawled: {tax_code} -> {info.get('Tên', 'N/A')}")
         return info
 
     except Exception as e:
@@ -207,7 +262,7 @@ def crawl_multiple_tax_codes(tax_codes: List[str], batch_size: int = 3, delay_ra
     """
     import random
     results = []
-
+    
     for idx, code in enumerate(tax_codes):
         info = fetch_tax_info(code.strip())
         if info:
